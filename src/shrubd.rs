@@ -1,10 +1,10 @@
-use std::{env, error::Error, io::{self, Read, Stdout, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
+use std::{env, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use shared_memory::{Shmem, ShmemConf, ShmemError};
+use shared_memory::ShmemError;
 
 
-use crate::{SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory};
+use crate::{SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory, shared_rcu::{RcuError, SharedRcuCell}};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
@@ -19,7 +19,8 @@ pub(super) fn start_shrubd() {
         .stdout(Stdio::piped())
         .spawn()
         .expect("Shrubd command failed to start.");
-
+    
+    sleep(Duration::from_secs(1));
     let mut buf = [0u8];
     daemon_ps.stdout.unwrap().read_exact(&mut buf).expect("Daemon didn't return succes code?");
 
@@ -38,36 +39,29 @@ enum StartupResult {
     LinkExists = 2
 }
 
-impl From<&Box<dyn Error>> for StartupResult {
-    fn from(err: &Box<dyn Error>) -> Self {
-        match err.downcast_ref::<ShmemError>() {
-            Some(ShmemError::LinkExists) => StartupResult::LinkExists,
-            Some(_) | None => StartupResult::UnknownError
+impl From<&RcuError> for StartupResult {
+    fn from(err: &RcuError) -> Self {
+        match err {
+            RcuError::SharedMemoryError(ShmemError::LinkExists) => StartupResult::LinkExists,
+            _ => StartupResult::UnknownError
         }
     }
 }
 
 /// Daemons main function
 pub(super) fn main() { 
-    let shmem = match startup() {
-        Ok(m) => m,
+    let shmem_cell = match SharedRcuCell::<SharedMemory>::create(SHMEM_FLINK.into()) {
+        Ok(d) => d,
         Err(err) => {
             print!("{}", u8::from(StartupResult::from(&err)) as char);
             panic!("Fatal error occured while starting up: {}", err)
         }
     };
+
+    let _ = shmem_cell.write(SharedMemory { pid: process::id() });
     
     print!("{}", u8::from(StartupResult::Ok) as char);
     let _ = io::stdout().flush();
 
     sleep(Duration::from_secs(10));
-
-    shmem.as_ptr();
-}
-
-/// Starts up daemon, the end of this function signals the client to continue.
-fn startup() -> Result<Shmem, Box<dyn Error>> {
-    let shmem = ShmemConf::new().flink(SHMEM_FLINK).size(size_of::<SharedMemory>()).create()?;
-
-    Ok(shmem)
 }

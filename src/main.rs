@@ -1,11 +1,14 @@
 #![allow(irrefutable_let_patterns)]
 
 
-use std::{ffi::OsString, io::{ErrorKind}};
+use std::{ffi::OsString, io::ErrorKind};
 
-use shared_memory::{ShmemConf, ShmemError};
+use shared_memory::ShmemError;
+
+use crate::shared_rcu::{SharedRcuCell, RcuError};
 
 mod shrubd;
+mod shared_rcu;
 
 // flink used for shared memory
 const SHMEM_FLINK: &str = "/tmp/shared_shrubs";
@@ -17,22 +20,27 @@ fn main() {
         return shrubd::main();
     }
 
-    let shmem = match ShmemConf::new().flink(SHMEM_FLINK).open() {
+    let shmem_cell = match SharedRcuCell::<SharedMemory>::open(SHMEM_FLINK.into()) {
         Ok(m) => m,
         Err(err) => {
             match err {
-                ShmemError::LinkDoesNotExist => (),
-                ShmemError::LinkOpenFailed(err) if err.kind() == ErrorKind::NotFound  => (),
-                _ => eprintln!("Non-fatal error occured while trying to open shared memory: {}", err),
+                RcuError::SharedMemoryError(ShmemError::LinkDoesNotExist) => (),
+                RcuError::SharedMemoryError(ShmemError::LinkOpenFailed(err)) if err.kind() == ErrorKind::NotFound  => (),
+                _ => eprintln!("Error occured while trying to open shared memory, attempting to startup shrubd: {}", err),
             }
 
             shrubd::start_shrubd();
 
-            ShmemConf::new().flink(SHMEM_FLINK).open().expect("Failed to open shared memory after shrubd has been started")
+            SharedRcuCell::open(SHMEM_FLINK.into()).expect("Failed to open shared memory after shrubd has been started")
         }
     };
+
+    let shmem = shmem_cell.read().unwrap();
+
+    println!("{}", shmem.pid)
 }
 
+#[derive(Debug)]
 struct SharedMemory {
-    pid: u64
+    pub pid: u32
 }
