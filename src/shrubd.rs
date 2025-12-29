@@ -6,7 +6,7 @@ use shared_memory::{Shmem, ShmemConf, ShmemError};
 
 use crate::{SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory};
 
-
+/// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
     println!("Starting daemon...");
 
@@ -47,6 +47,7 @@ impl From<&Box<dyn Error>> for StartupResult {
     }
 }
 
+/// Daemons main function
 pub(super) fn main() { 
     let shmem = match startup() {
         Ok(m) => m,
@@ -64,6 +65,7 @@ pub(super) fn main() {
     shmem.as_ptr();
 }
 
+/// Starts up daemon, the end of this function signals the client to continue.
 fn startup() -> Result<Shmem, Box<dyn Error>> {
     let shmem = ShmemConf::new().flink(SHMEM_FLINK).size(size_of::<SharedMemory>()).create()?;
 
