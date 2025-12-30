@@ -1,10 +1,10 @@
-use std::{ffi::OsString, marker, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
+use std::{ffi::OsString, marker, sync::atomic::{AtomicUsize, Ordering}};
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use thiserror::Error;
 
 
 pub struct SharedRcuCell<T> {
-    shmem_handle: Shmem,
+    _shmem_handle: Shmem,
     shmem_ptr: *mut (AtomicUsize, T, T),
     _marker: marker::PhantomData<T>
 }
@@ -18,9 +18,9 @@ impl<T> SharedRcuCell<T> {
         }   
     }
 
-    const fn shmem(&self) -> &mut (AtomicUsize, T, T) {unsafe {return &mut *self.shmem_ptr}}
+    const fn shmem(&self) -> &mut (AtomicUsize, T, T) {unsafe {&mut *self.shmem_ptr}}
 
-    fn gptr(&self) -> *mut T {unsafe {return self.shmem_ptr.add(self.shmem().0.load(Ordering::Relaxed)) as *mut T}}
+    fn gptr(&self) -> *mut T {unsafe {self.shmem_ptr.add(self.shmem().0.load(Ordering::Relaxed)) as *mut T}}
 
     fn check_shmem(&self) -> Result<(), RcuError> {
         match (self.shmem_ptr.is_null(), !self.shmem_ptr.is_aligned()) {
@@ -30,20 +30,16 @@ impl<T> SharedRcuCell<T> {
 
         let gptr = self.gptr();
 
-        eprintln!("{:p}, {:p}", self.shmem_ptr, gptr);
-
         match (gptr.is_null(), !gptr.is_aligned()) {
             (false, false) => (),
             (n, a) => return Err(RcuError::InvalidGptr(n, a))
         };
 
-        return Ok(())
+        Ok(())
     }
 
     pub fn write(&self, data: T) -> Result<(), RcuError> {
         self.check_shmem()?;
-
-        let gptr = self.gptr();
 
         let offset = self.shmem().0.load(Ordering::Relaxed);
 
@@ -62,7 +58,7 @@ impl<T> SharedRcuCell<T> {
             self.shmem().0.swap(new_offset, Ordering::Release);
         }
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn open(flink: OsString) -> Result<Self, RcuError> {
@@ -95,7 +91,7 @@ impl<T> SharedRcuCell<T> {
         Ok(Self::new(shmem_handle))
     }
 
-    fn new(shmem_handle: Shmem) -> Self {Self {shmem_ptr: shmem_handle.as_ptr() as _, shmem_handle, _marker: marker::PhantomData}}
+    fn new(shmem_handle: Shmem) -> Self {Self {shmem_ptr: shmem_handle.as_ptr() as _, _shmem_handle: shmem_handle, _marker: marker::PhantomData}}
 }
 
 #[derive(Error, Debug)]

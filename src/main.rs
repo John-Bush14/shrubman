@@ -1,5 +1,5 @@
 #![allow(irrefutable_let_patterns)]
-
+#![allow(clippy::mut_from_ref)]
 
 use std::{ffi::OsString, io::ErrorKind};
 
