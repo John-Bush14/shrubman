@@ -4,7 +4,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
 
-use crate::{Pid, SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory, shared_rcu::{RcuError, SharedRcuCell}};
+use crate::{Pid, SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory, SharedMemoryCell, shared_rcu::RcuError};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
@@ -53,8 +53,8 @@ pub(super) fn main() {
     sleep(Duration::from_secs(10));
 }
 
-fn create_shmem_cell() -> SharedRcuCell<SharedMemory> {
-    match SharedRcuCell::<SharedMemory>::create(SHMEM_FLINK.into()) {
+fn create_shmem_cell() -> SharedMemoryCell {
+    match SharedMemoryCell::create(SHMEM_FLINK.into()) {
         Ok(c) => c,
         Err(RcuError::SharedMemoryError(ShmemError::LinkExists)) => {
             fs::remove_file(SHMEM_FLINK).expect("Link exists but doesn't exist?"); 

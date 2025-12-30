@@ -16,9 +16,10 @@ const SHMEM_FLINK: &str = "/tmp/shared_shrubs";
 // environment variable used to make program act as daemon
 const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
 
+type SharedMemoryCell = SharedRcuCell<SharedMemory>;
+
 #[derive(Debug)]
 struct Pid(libc::pid_t);
-
 impl Pid {fn is_valid(&self) -> bool {
     fs::exists(format!("/proc/{}", self.0)).unwrap_or(false)
 }}
@@ -43,7 +44,7 @@ fn main() {
 
             shrubd::start_shrubd();
 
-            SharedRcuCell::open(SHMEM_FLINK.into()).expect("Failed to open shared memory after shrubd has been started")
+            SharedMemoryCell::open(SHMEM_FLINK.into()).expect("Failed to open shared memory after shrubd has been started")
         }
     };
 
