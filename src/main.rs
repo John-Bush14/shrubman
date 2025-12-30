@@ -29,8 +29,19 @@ fn main() {
     if std::env::var_os(SHRUBD_ENABLE_VAR).unwrap_or(OsString::from("0")) == "1" {
         return shrubd::main();
     }
-    
-    let shmem_cell = match SharedRcuCell::<SharedMemory>::open(SHMEM_FLINK.into()) {
+
+    let shmem_cell = open_shmem_cell();
+}
+
+
+#[derive(Debug)]
+struct SharedMemory {
+    pub pid: Pid
+}
+
+
+fn open_shmem_cell() -> SharedMemoryCell {
+    match SharedMemoryCell::open(SHMEM_FLINK.into()) {
         Ok(cell) if cell.read().unwrap().pid.is_valid() => cell, 
         result => {
             match result {
@@ -46,14 +57,5 @@ fn main() {
 
             SharedMemoryCell::open(SHMEM_FLINK.into()).expect("Failed to open shared memory after shrubd has been started")
         }
-    };
-
-    let shmem = shmem_cell.read().unwrap();
-
-    println!("{:?}", shmem.pid)
-}
-
-#[derive(Debug)]
-struct SharedMemory {
-    pub pid: Pid
+    }
 }
