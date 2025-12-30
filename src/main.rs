@@ -37,7 +37,7 @@ fn main() {
                 Err(err) => match err {
                     RcuError::SharedMemoryError(ShmemError::LinkDoesNotExist) => (),
                     RcuError::SharedMemoryError(ShmemError::LinkOpenFailed(err)) if err.kind() == ErrorKind::NotFound  => (),
-                    err => eprintln!("Error occured while trying to open shared memory, attempting to startup shrubd: {}", err),
+                    err => eprintln!("Error occured while trying to open shared memory ({}), attempting to restart shrubd", err),
                 }
             }
 

@@ -1,4 +1,4 @@
-use std::{env, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
+use std::{env, fs::{self}, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
@@ -26,8 +26,7 @@ pub(super) fn start_shrubd() {
 
     match StartupResult::try_from(buf[0]).expect("Daemon returned invalid result? (try restarting shrubd)") {
         StartupResult::Ok => println!("Daemon started up succesfully!"),
-        StartupResult::LinkExists => eprintln!("Shared memory is already in use? continuing as if daemon was started up normally."),
-        StartupResult::UnknownError => panic!("Unknown error has occured while daemon was starting up.")
+        StartupResult::Error => panic!("Unknown error has occured while daemon was starting up.")
     };
 }
 
@@ -35,33 +34,35 @@ pub(super) fn start_shrubd() {
 #[derive(TryFromPrimitive, IntoPrimitive, Debug)]
 enum StartupResult {
     Ok = 0,
-    UnknownError = 1,
-    LinkExists = 2
+    Error = 1,
 }
+impl StartupResult {fn return_result(self) {
+    print!("{}", u8::from(self) as char); 
+    let _ = io::stdout().flush();
+}}
 
-impl From<&RcuError> for StartupResult {
-    fn from(err: &RcuError) -> Self {
-        match err {
-            RcuError::SharedMemoryError(ShmemError::LinkExists) => StartupResult::LinkExists,
-            _ => StartupResult::UnknownError
-        }
-    }
-}
 
 /// Daemons main function
 pub(super) fn main() { 
-    let shmem_cell = match SharedRcuCell::<SharedMemory>::create(SHMEM_FLINK.into()) {
-        Ok(d) => d,
-        Err(err) => {
-            print!("{}", u8::from(StartupResult::from(&err)) as char);
-            panic!("Fatal error occured while starting up: {}", err)
-        }
-    };
+    let shmem_cell = create_shmem_cell();
 
     let _ = shmem_cell.write(SharedMemory { pid: Pid(process::id() as _) });
     
-    print!("{}", u8::from(StartupResult::Ok) as char);
-    let _ = io::stdout().flush();
+    StartupResult::Ok.return_result();
 
     sleep(Duration::from_secs(10));
+}
+
+fn create_shmem_cell() -> SharedRcuCell<SharedMemory> {
+    match SharedRcuCell::<SharedMemory>::create(SHMEM_FLINK.into()) {
+        Ok(c) => c,
+        Err(RcuError::SharedMemoryError(ShmemError::LinkExists)) => {
+            fs::remove_file(SHMEM_FLINK).expect("Link exists but doesn't exist?"); 
+            create_shmem_cell()
+        }
+        Err(err) => {
+            StartupResult::Error.return_result();
+            panic!("Fatal error occured while starting up: {}", err)
+        }
+    }
 }
