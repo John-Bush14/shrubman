@@ -4,7 +4,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
 
-use crate::{SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory, shared_rcu::{RcuError, SharedRcuCell}};
+use crate::{Pid, SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemory, shared_rcu::{RcuError, SharedRcuCell}};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
@@ -58,7 +58,7 @@ pub(super) fn main() {
         }
     };
 
-    let _ = shmem_cell.write(SharedMemory { pid: process::id() });
+    let _ = shmem_cell.write(SharedMemory { pid: Pid(process::id() as _) });
     
     print!("{}", u8::from(StartupResult::Ok) as char);
     let _ = io::stdout().flush();
