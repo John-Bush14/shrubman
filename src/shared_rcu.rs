@@ -1,19 +1,19 @@
-use std::{ffi::OsString, marker, sync::atomic::{AtomicUsize, Ordering}};
+use std::{ffi::OsString, sync::atomic::{AtomicUsize, Ordering}};
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use thiserror::Error;
 
-pub struct SharedRcuCell<T: Sized> {
+pub struct SharedRcuCell<T: Sized, const N: usize> {
     _shmem_handle: Shmem,
-    shmem_ptr: *mut SharedMemory<T>,
+    shmem_ptr: *mut SharedMemory<T, N>,
 }
 
 #[repr(C)]
-pub struct SharedMemory<T: Sized> {
+pub struct SharedMemory<T: Sized, const N: usize> {
     offset: AtomicUsize,
-    values: [T; 2]
+    values: [T; N]
 }
 
-impl<T> SharedRcuCell<T> {
+impl<T, const N: usize> SharedRcuCell<T, N> {
     pub fn read(&self) -> Result<&T, RcuError> {
         self.check_shmem()?;
 
@@ -22,7 +22,7 @@ impl<T> SharedRcuCell<T> {
         }   
     }
 
-    const fn shmem(&self) -> &mut SharedMemory<T> {unsafe {&mut *self.shmem_ptr}}
+    const fn shmem(&self) -> &mut SharedMemory<T, N> {unsafe {&mut *self.shmem_ptr}}
 
     fn gptr(&self) -> *mut T {unsafe {self.shmem_ptr.add(self.offset()) as *mut T}}
 
@@ -47,14 +47,7 @@ impl<T> SharedRcuCell<T> {
     pub fn write(&self, data: T) -> Result<(), RcuError> {
         self.check_shmem()?;
 
-        let offset = self.shmem().offset.load(Ordering::Relaxed);
-
-        let t_size = size_of::<T>();
-        let new_offset = match offset - size_of::<AtomicUsize>() {
-            0 => t_size,
-            _ if offset == t_size => 0,
-            _ => return Err(RcuError::InvalidOffset(offset))
-        } + size_of::<AtomicUsize>();
+        let new_offset = (self.offset() - size_of::<AtomicUsize>() + size_of::<T>()) % const {N * size_of::<T>()} + size_of::<AtomicUsize>();
 
         unsafe {
             let new_gptr = self.shmem_ptr.add(new_offset) as *mut T;
@@ -81,7 +74,7 @@ impl<T> SharedRcuCell<T> {
     }
 
     pub fn create(flink: OsString) -> Result<Self, RcuError> {
-        let shmem_size = size_of::<SharedMemory<T>>();
+        let shmem_size = size_of::<SharedMemory<T, N>>();
 
         let shmem_handle = match ShmemConf::new().flink(flink).size(shmem_size).create() {
             Ok(m) => m,
@@ -89,7 +82,7 @@ impl<T> SharedRcuCell<T> {
         };
 
         unsafe {
-            let shmem = &mut *(shmem_handle.as_ptr() as *mut SharedMemory<T>);
+            let shmem = &mut *(shmem_handle.as_ptr() as *mut SharedMemory<T, N>);
 
             shmem.offset = AtomicUsize::from(size_of::<AtomicUsize>());
         }

@@ -16,7 +16,8 @@ const SHMEM_FLINK: &str = "/tmp/shared_shrubs";
 // environment variable used to make program act as daemon
 const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
 
-type SharedMemoryCell = SharedRcuCell<SharedMemory>;
+const REDUNDANCY: usize = 3;
+type SharedMemoryCell = SharedRcuCell<SharedMemory, REDUNDANCY>;
 
 #[derive(Debug)]
 struct Pid(libc::pid_t);
