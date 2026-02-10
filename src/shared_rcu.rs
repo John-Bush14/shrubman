@@ -5,7 +5,6 @@ use thiserror::Error;
 pub struct SharedRcuCell<T: Sized> {
     _shmem_handle: Shmem,
     shmem_ptr: *mut SharedMemory<T>,
-    _marker: marker::PhantomData<T>
 }
 
 #[repr(C)]
@@ -96,7 +95,7 @@ impl<T> SharedRcuCell<T> {
         Ok(Self::new(shmem_handle))
     }
 
-    fn new(shmem_handle: Shmem) -> Self {Self {shmem_ptr: shmem_handle.as_ptr() as _, _shmem_handle: shmem_handle, _marker: marker::PhantomData}}
+    fn new(shmem_handle: Shmem) -> Self {Self {shmem_ptr: shmem_handle.as_ptr() as _, _shmem_handle: shmem_handle}}
 }
 
 #[derive(Error, Debug)]
