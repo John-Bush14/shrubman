@@ -17,7 +17,7 @@ const SHMEM_FLINK: &str = "/tmp/shared_shrubs";
 const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
 
 const REDUNDANCY: usize = 3;
-type SharedMemoryCell = SharedRcuCell<SharedMemory, REDUNDANCY>;
+type SharedMemoryCell<T> = SharedRcuCell<T, REDUNDANCY>;
 
 #[derive(Debug)]
 struct Pid(libc::pid_t);
@@ -31,20 +31,19 @@ fn main() {
         return shrubd::main();
     }
 
-    let shmem_cell = open_shmem_cell();
+    let general_shmem_cell = open_general_shmem_cell();
     
-    println!("{:?}", *shmem_cell)
+    println!("{:?}", *general_shmem_cell)
 }
 
 
 #[derive(Debug)]
-struct SharedMemory {
+struct GeneralSharedMemory {
     pub pid: Pid
 }
 
-
-fn open_shmem_cell() -> SharedMemoryCell {
-    match SharedMemoryCell::open(SHMEM_FLINK.into()) {
+fn open_general_shmem_cell() -> SharedMemoryCell<GeneralSharedMemory> {
+    match SharedMemoryCell::<GeneralSharedMemory>::open(SHMEM_FLINK.into()) {
         Ok(cell) if cell.read().unwrap().pid.is_valid() => cell, 
         result => {
             match result {
