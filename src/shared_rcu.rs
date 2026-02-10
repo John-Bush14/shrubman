@@ -9,8 +9,8 @@ pub struct SharedRcuCell<T: Sized, const N: usize> {
 
 #[repr(C)]
 pub struct SharedMemory<T: Sized, const N: usize> {
-    offset: AtomicUsize,
-    values: [T; N]
+    values: [T; N],
+    offset: AtomicUsize
 }
 
 impl<T, const N: usize> Deref for SharedRcuCell<T, N> {
@@ -52,13 +52,11 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
     }
 
     const T_SIZE: usize = size_of::<T>();
-    const OFFSET_SIZE: usize = size_of::<AtomicUsize>();
+
     pub fn write(&self, data: T) -> Result<(), RcuError> {
         self.check_shmem()?;
 
-
-        let new_offset = (self.offset() + const {Self::T_SIZE - Self::OFFSET_SIZE}) % const {N * Self::T_SIZE} + Self::OFFSET_SIZE;
-        
+        let new_offset = (self.offset() + Self::T_SIZE) % const {N * Self::T_SIZE};
 
         unsafe {
             let new_gptr = self.shmem_ptr.add(new_offset) as *mut T;
@@ -95,7 +93,7 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         unsafe {
             let shmem = &mut *(shmem_handle.as_ptr() as *mut SharedMemory<T, N>);
 
-            shmem.offset = AtomicUsize::from(Self::OFFSET_SIZE);
+            shmem.offset = AtomicUsize::from(0);
         }
         
         Ok(Self::new(shmem_handle))
