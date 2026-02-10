@@ -24,7 +24,9 @@ impl<T> SharedRcuCell<T> {
 
     const fn shmem(&self) -> &mut SharedMemory<T> {unsafe {&mut *self.shmem_ptr}}
 
-    fn gptr(&self) -> *mut T {unsafe {self.shmem_ptr.add(self.shmem().offset.load(Ordering::Relaxed)) as *mut T}}
+    fn gptr(&self) -> *mut T {unsafe {self.shmem_ptr.add(self.offset()) as *mut T}}
+
+    fn offset(&self) -> usize {self.shmem().offset.load(Ordering::Relaxed)}
 
     fn check_shmem(&self) -> Result<(), RcuError> {
         match (self.shmem_ptr.is_null(), !self.shmem_ptr.is_aligned()) {
