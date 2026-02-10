@@ -51,10 +51,14 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         Ok(())
     }
 
+    const T_SIZE: usize = size_of::<T>();
+    const OFFSET_SIZE: usize = size_of::<AtomicUsize>();
     pub fn write(&self, data: T) -> Result<(), RcuError> {
         self.check_shmem()?;
 
-        let new_offset = (self.offset() - size_of::<AtomicUsize>() + size_of::<T>()) % const {N * size_of::<T>()} + size_of::<AtomicUsize>();
+
+        let new_offset = (self.offset() + const {Self::T_SIZE - Self::OFFSET_SIZE}) % const {N * Self::T_SIZE} + Self::OFFSET_SIZE;
+        
 
         unsafe {
             let new_gptr = self.shmem_ptr.add(new_offset) as *mut T;
@@ -91,7 +95,7 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         unsafe {
             let shmem = &mut *(shmem_handle.as_ptr() as *mut SharedMemory<T, N>);
 
-            shmem.offset = AtomicUsize::from(size_of::<AtomicUsize>());
+            shmem.offset = AtomicUsize::from(Self::OFFSET_SIZE);
         }
         
         Ok(Self::new(shmem_handle))
