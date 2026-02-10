@@ -41,6 +41,12 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
             (n, a) => return Err(RcuError::InvalidShmemPtr(n, a))
         };
 
+        if self.offset() > const {(N-1) * Self::T_SIZE}
+            || !self.offset().is_multiple_of(Self::T_SIZE) 
+        {
+            return Err(RcuError::InvalidOffset(self.offset()))
+        }
+
         let gptr = self.gptr();
 
         match (gptr.is_null(), !gptr.is_aligned()) {
