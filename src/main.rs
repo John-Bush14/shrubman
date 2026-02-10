@@ -32,6 +32,8 @@ fn main() {
     }
 
     let shmem_cell = open_shmem_cell();
+    
+    println!("{:?}", *shmem_cell)
 }
 
 

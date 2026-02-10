@@ -1,4 +1,4 @@
-use std::{ffi::OsString, sync::atomic::{AtomicUsize, Ordering}};
+use std::{ffi::OsString, ops::Deref, sync::atomic::{AtomicUsize, Ordering}};
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use thiserror::Error;
 
@@ -11,6 +11,13 @@ pub struct SharedRcuCell<T: Sized, const N: usize> {
 pub struct SharedMemory<T: Sized, const N: usize> {
     offset: AtomicUsize,
     values: [T; N]
+}
+
+impl<T, const N: usize> Deref for SharedRcuCell<T, N> {
+    type Target = T;
+
+    // I know ok, if there was a way to deref to a result I would do it.
+    fn deref(&self) -> &Self::Target {self.read().expect("Dereferenced invalid shared memory")}
 }
 
 impl<T, const N: usize> SharedRcuCell<T, N> {
@@ -28,7 +35,7 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
 
     fn offset(&self) -> usize {self.shmem().offset.load(Ordering::Relaxed)}
 
-    fn check_shmem(&self) -> Result<(), RcuError> {
+    pub fn check_shmem(&self) -> Result<(), RcuError> {
         match (self.shmem_ptr.is_null(), !self.shmem_ptr.is_aligned()) {
             (false, false) => (),
             (n, a) => return Err(RcuError::InvalidShmemPtr(n, a))
