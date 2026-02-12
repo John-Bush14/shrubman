@@ -47,22 +47,22 @@ impl StartupResult {fn return_result(self) {
 pub(super) fn main() {
     env_logger::init();
 
-    let shmem_cell = create_general_shmem_cell();
+    let heartbeat_cell = create_heartbeat_cell();
 
     let mut version = InplaceString::new(); version.push_str(env!("CARGO_PKG_VERSION"));
-    let _ = shmem_cell.write(Heartbeat { pid: Pid(process::id() as _), version });
+    let _ = heartbeat_cell.write(Heartbeat { pid: Pid(process::id() as _), version });
     
     StartupResult::Ok.return_result();
 
     sleep(Duration::from_secs(10));
 }
 
-fn create_general_shmem_cell() -> SharedMemoryCell<Heartbeat> {
+fn create_heartbeat_cell() -> SharedMemoryCell<Heartbeat> {
     match SharedMemoryCell::create(HEARTBEAT_SHMEM_FLINK.into()) {
         Ok(c) => c,
         Err(RcuError::SharedMemoryError(ShmemError::LinkExists)) => {
             fs::remove_file(HEARTBEAT_SHMEM_FLINK).expect("Link exists but doesn't exist?"); 
-            create_general_shmem_cell()
+            create_heartbeat_cell()
         }
         Err(err) => {
             StartupResult::Error.return_result();
