@@ -6,6 +6,7 @@
 use std::{error::Error, ffi::OsString, fs};
 
 use inplace_containers::InplaceString;
+use log::{debug, info, warn};
 use thiserror::Error;
 
 use crate::shared_rcu::SharedRcuCell;
@@ -14,7 +15,7 @@ mod shrubd;
 mod shared_rcu;
 
 
-// flink used for shared memory
+// flink used for heartbeat cell
 const HEARTBEAT_SHMEM_FLINK: &str = "/tmp/shared_shrubs";
 // environment variable used to make program act as daemon
 const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
@@ -37,9 +38,11 @@ fn main() {
         return shrubd::main();
     }
 
+    env_logger::init();
+
     let heartbeat_cell = open_heartbeat_cell();
     
-    println!("{:?}", *heartbeat_cell)
+    debug!("{:?}", *heartbeat_cell)
 }
 
 #[derive(Debug)]
@@ -58,7 +61,7 @@ fn open_heartbeat_cell() -> SharedMemoryCell<Heartbeat> {
         Err(err) => Box::new(err),
     };
 
-    eprintln!("Shrubd is assumed not to be alive or valid because off ({}), attempting to restart shrubd", restart_reason);
+    info!("Assuming shrubd to not be alive or valid because off: {}.", restart_reason);
 
     shrubd::start_shrubd();
 
@@ -69,7 +72,7 @@ impl Heartbeat {
     fn is_beating(&self) -> Result<(), CardiacArrest> {
         let version = env!("CARGO_PKG_VERSION");
         if self.version != version {
-            eprintln!("Daemon is running a different version ({}) to current running process ({}), unintended behaviour (probably just segfaults) might ensue.", self.version, version);
+            warn!("Daemon is running a different version ({}) to current running process ({}), unintended behaviour (probably just segfaults) might ensue.", self.version, version);
         }
 
         if !self.pid.is_valid() {return Err(CardiacArrest::DeadPid(self.pid))}
