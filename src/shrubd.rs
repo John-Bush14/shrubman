@@ -1,6 +1,7 @@
 use std::{env, fs::{self}, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
 
 use inplace_containers::InplaceString;
+use log::info;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
@@ -9,13 +10,12 @@ use crate::{HEARTBEAT_SHMEM_FLINK, Heartbeat, Pid, SHRUBD_ENABLE_VAR, SharedMemo
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
-    println!("Starting daemon...");
+    info!("Starting daemon...");
 
     let self_path = env::current_exe().unwrap();
 
      #[allow(clippy::zombie_processes)]
     let daemon_ps = process::Command::new(self_path)
-        .current_dir("/")
         .env(SHRUBD_ENABLE_VAR, "1")
         .stdout(Stdio::piped())
         .spawn()
@@ -26,7 +26,7 @@ pub(super) fn start_shrubd() {
     daemon_ps.stdout.unwrap().read_exact(&mut buf).expect("Daemon didn't return succes code?");
 
     match StartupResult::try_from(buf[0]).expect("Daemon returned invalid result? (try restarting shrubd)") {
-        StartupResult::Ok => println!("Daemon started up succesfully!"),
+        StartupResult::Ok => info!("Daemon started up succesfully!"),
         StartupResult::Error => panic!("Unknown error has occured while daemon was starting up.")
     };
 }
@@ -44,7 +44,9 @@ impl StartupResult {fn return_result(self) {
 
 
 /// Daemons main function
-pub(super) fn main() { 
+pub(super) fn main() {
+    env_logger::init();
+
     let shmem_cell = create_general_shmem_cell();
 
     let mut version = InplaceString::new(); version.push_str(env!("CARGO_PKG_VERSION"));
