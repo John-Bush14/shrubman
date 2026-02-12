@@ -1,10 +1,11 @@
 use std::{env, fs::{self}, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
 
+use inplace_containers::{InplaceString, inplace_string};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
 
-use crate::{Heartbeat, Pid, SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemoryCell, shared_rcu::RcuError};
+use crate::{HEARTBEAT_SHMEM_FLINK, Heartbeat, Pid, SHRUBD_ENABLE_VAR, SharedMemoryCell, VersionString, shared_rcu::RcuError};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
@@ -46,7 +47,8 @@ impl StartupResult {fn return_result(self) {
 pub(super) fn main() { 
     let shmem_cell = create_general_shmem_cell();
 
-    let _ = shmem_cell.write(Heartbeat { pid: Pid(process::id() as _) });
+    let mut version = InplaceString::new(); version.push_str(env!("CARGO_PKG_VERSION"));
+    let _ = shmem_cell.write(Heartbeat { pid: Pid(process::id() as _), version });
     
     StartupResult::Ok.return_result();
 
@@ -54,10 +56,10 @@ pub(super) fn main() {
 }
 
 fn create_general_shmem_cell() -> SharedMemoryCell<Heartbeat> {
-    match SharedMemoryCell::create(SHMEM_FLINK.into()) {
+    match SharedMemoryCell::create(HEARTBEAT_SHMEM_FLINK.into()) {
         Ok(c) => c,
         Err(RcuError::SharedMemoryError(ShmemError::LinkExists)) => {
-            fs::remove_file(SHMEM_FLINK).expect("Link exists but doesn't exist?"); 
+            fs::remove_file(HEARTBEAT_SHMEM_FLINK).expect("Link exists but doesn't exist?"); 
             create_general_shmem_cell()
         }
         Err(err) => {

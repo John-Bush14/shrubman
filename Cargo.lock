@@ -70,6 +70,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "inplace_containers"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cfe5daad9a044b955c2bbab8f486f515178bb7429d4b3402511d3e970782301"
+
+[[package]]
 name = "libc"
 version = "0.2.178"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -240,6 +246,7 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 name = "shrubman"
 version = "0.1.0"
 dependencies = [
+ "inplace_containers",
  "libc",
  "num_enum",
  "shared_memory",
