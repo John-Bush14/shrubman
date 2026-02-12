@@ -1,11 +1,11 @@
 use std::{env, fs::{self}, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
 
-use inplace_containers::{InplaceString, inplace_string};
+use inplace_containers::InplaceString;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
 
-use crate::{HEARTBEAT_SHMEM_FLINK, Heartbeat, Pid, SHRUBD_ENABLE_VAR, SharedMemoryCell, VersionString, shared_rcu::RcuError};
+use crate::{HEARTBEAT_SHMEM_FLINK, Heartbeat, Pid, SHRUBD_ENABLE_VAR, SharedMemoryCell, shared_rcu::RcuError};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {

@@ -3,13 +3,12 @@
 #![allow(incomplete_features)]
 #![feature(adt_const_params)]
 
-use std::{error::Error, ffi::OsString, fs, io::ErrorKind};
+use std::{error::Error, ffi::OsString, fs};
 
 use inplace_containers::InplaceString;
-use shared_memory::ShmemError;
 use thiserror::Error;
 
-use crate::shared_rcu::{SharedRcuCell, RcuError};
+use crate::shared_rcu::SharedRcuCell;
 
 mod shrubd;
 mod shared_rcu;
@@ -23,8 +22,8 @@ const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
 const REDUNDANCY: usize = 3;
 type SharedMemoryCell<T> = SharedRcuCell<T, REDUNDANCY>;
 
-#[derive(Debug)]
-struct Pid(libc::pid_t);
+#[derive(Debug, Clone, Copy)]
+pub struct Pid(libc::pid_t);
 impl Pid {fn is_valid(&self) -> bool {
     fs::exists(format!("/proc/{}", self.0)).unwrap_or(false)
 }}
@@ -62,7 +61,7 @@ impl Heartbeat {
             eprintln!("Daemon is running a different version ({}) to current running process ({}), unintended behaviour (probably just segfaults) might ensue.", self.version, version);
         }
 
-        if !self.pid.is_valid() {return Err(CardiacArrest::DeadPid(Pid(self.pid.0)))}
+        if !self.pid.is_valid() {return Err(CardiacArrest::DeadPid(self.pid))}
 
         Ok(())
     }
