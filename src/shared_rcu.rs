@@ -59,6 +59,8 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
 
     const T_SIZE: usize = size_of::<T>();
 
+    const SHMEM_SIZE: usize = size_of::<SharedMemory<T, N>>();
+
     pub fn write(&self, data: T) -> Result<(), RcuError> {
         self.check_shmem()?;
 
@@ -81,6 +83,8 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
             Err(err) => return Err(RcuError::SharedMemoryError(err))
         };
 
+        if shmem_handle.len() != Self::SHMEM_SIZE {return Err(RcuError::SizeMismatch(Self::SHMEM_SIZE, shmem_handle.len()))}
+
         let s = Self::new(shmem_handle);
 
         s.check_shmem()?; 
@@ -89,9 +93,7 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
     }
 
     pub fn create(flink: OsString) -> Result<Self, RcuError> {
-        let shmem_size = size_of::<SharedMemory<T, N>>();
-
-        let shmem_handle = match ShmemConf::new().flink(flink).size(shmem_size).create() {
+        let shmem_handle = match ShmemConf::new().flink(flink).size(Self::SHMEM_SIZE).create() {
             Ok(m) => m,
             Err(err) => return Err(RcuError::SharedMemoryError(err))
         };
@@ -117,5 +119,7 @@ pub enum RcuError {
     #[error("Global pointer offset is an invalid value ({0})")]
     InvalidOffset(usize),
     #[error("Shared memory error occured (at opening or creation): {0}")]
-    SharedMemoryError(ShmemError)
+    SharedMemoryError(ShmemError),
+    #[error("Opened shared memory has different size ({1}) to the one needed for defined type and redundancy ({1}), probably a version mismatch problem.")]
+    SizeMismatch(usize, usize)
 }
