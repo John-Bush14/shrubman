@@ -1,5 +1,7 @@
 #![allow(irrefutable_let_patterns)]
 #![allow(clippy::mut_from_ref)]
+#![allow(incomplete_features)]
+#![feature(adt_const_params)]
 
 use std::{ffi::OsString, fs, io::ErrorKind};
 
