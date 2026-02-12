@@ -14,7 +14,7 @@ mod shared_rcu;
 
 
 // flink used for shared memory
-const SHMEM_FLINK: &str = "/tmp/shared_shrubs";
+const HEARTBEAT_SHMEM_FLINK: &str = "/tmp/shared_shrubs";
 // environment variable used to make program act as daemon
 const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
 
@@ -33,33 +33,33 @@ fn main() {
         return shrubd::main();
     }
 
-    let general_shmem_cell = open_general_shmem_cell();
+    let heartbeat_cell = open_heartbeat_cell();
     
-    println!("{:?}", *general_shmem_cell)
+    println!("{:?}", *heartbeat_cell)
 }
 
 
 #[derive(Debug)]
-struct GeneralSharedMemory {
-    pub pid: Pid
+pub struct Heartbeat {
+    pid: Pid
 }
 
-fn open_general_shmem_cell() -> SharedMemoryCell<GeneralSharedMemory> {
-    match SharedMemoryCell::<GeneralSharedMemory>::open(SHMEM_FLINK.into()) {
+fn open_heartbeat_cell() -> SharedMemoryCell<Heartbeat> {
+    match SharedMemoryCell::<Heartbeat>::open(SHMEM_FLINK.into()) {
         Ok(cell) if cell.read().unwrap().pid.is_valid() => cell, 
         result => {
             match result {
-                Ok(cell) => println!("Shared memory contained dead daemon pid, restarting shrubd. ({:?})", cell.read().unwrap().pid),
+                Ok(cell) => println!("Shared heartbeat memory contained dead daemon pid, restarting shrubd. ({:?})", cell.read().unwrap().pid),
                 Err(err) => match err {
                     RcuError::SharedMemoryError(ShmemError::LinkDoesNotExist) => (),
                     RcuError::SharedMemoryError(ShmemError::LinkOpenFailed(err)) if err.kind() == ErrorKind::NotFound  => (),
-                    err => eprintln!("Error occured while trying to open shared memory ({}), attempting to restart shrubd", err),
+                    err => eprintln!("Error occured while trying to open shared heartbeat memory ({}), attempting to restart shrubd", err),
                 }
             }
 
             shrubd::start_shrubd();
 
-            SharedMemoryCell::open(SHMEM_FLINK.into()).expect("Failed to open shared memory after shrubd has been started")
         }
     }
 }
+    SharedMemoryCell::open(HEARTBEAT_SHMEM_FLINK.into()).expect("Failed to open shared heartbeat memory after shrubd has been started")

@@ -4,7 +4,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
 
-use crate::{GeneralSharedMemory, Pid, SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemoryCell, shared_rcu::RcuError};
+use crate::{Heartbeat, Pid, SHMEM_FLINK, SHRUBD_ENABLE_VAR, SharedMemoryCell, shared_rcu::RcuError};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
@@ -46,14 +46,14 @@ impl StartupResult {fn return_result(self) {
 pub(super) fn main() { 
     let shmem_cell = create_general_shmem_cell();
 
-    let _ = shmem_cell.write(GeneralSharedMemory { pid: Pid(process::id() as _) });
+    let _ = shmem_cell.write(Heartbeat { pid: Pid(process::id() as _) });
     
     StartupResult::Ok.return_result();
 
     sleep(Duration::from_secs(10));
 }
 
-fn create_general_shmem_cell() -> SharedMemoryCell<GeneralSharedMemory> {
+fn create_general_shmem_cell() -> SharedMemoryCell<Heartbeat> {
     match SharedMemoryCell::create(SHMEM_FLINK.into()) {
         Ok(c) => c,
         Err(RcuError::SharedMemoryError(ShmemError::LinkExists)) => {
