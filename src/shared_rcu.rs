@@ -53,9 +53,14 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
 
     const fn shmem(&self) -> &mut SharedMemory<T, N> {unsafe {&mut *self.shmem_ptr}}
 
-    fn gptr(&self) -> *mut T {unsafe {self.shmem_ptr.add(self.offset()) as *mut T}}
+    fn gptr_with(&self, offset: usize) -> *mut T {
+        unsafe {
+            (*self.shmem_ptr).values.as_mut_ptr().add(offset)
+        }
+    }
 
     fn offset(&self) -> usize {self.shmem().offset.load(Ordering::Relaxed)}
+    fn gptr(&self) -> *mut T {self.gptr_with(self.offset())}
 
     pub fn check_shmem(&self) -> Result<(), RcuError> {
         match (self.shmem_ptr.is_null(), !self.shmem_ptr.is_aligned()) {
@@ -87,7 +92,7 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         let new_offset = (self.offset() + Self::T_SIZE) % const {N * Self::T_SIZE};
 
         unsafe {
-            let new_gptr = self.shmem_ptr.add(new_offset) as *mut T;
+            let new_gptr = self.gptr_with(new_offset);
 
             new_gptr.write(data);
             
