@@ -47,8 +47,8 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         self.check_shmem()?;
 
         unsafe {
-            Ok(&*(self.gptr()))
-        }   
+            Ok(&*self.gptr())
+        }
     }
 
     const fn shmem(&self) -> &mut SharedMemory<T, N> {unsafe {&mut *self.shmem_ptr}}
@@ -148,6 +148,6 @@ pub enum RcuError {
     InvalidOffset(usize),
     #[error("Shared memory error occured (at opening or creation): {0}")]
     SharedMemoryError(ShmemError),
-    #[error("Opened shared memory has different size ({1}) to the one needed for defined type and redundancy ({1}), probably a version mismatch problem.")]
+    #[error("Opened shared memory has different size ({1}) to the one needed for defined type and redundancy ({0}), probably a version mismatch problem.")]
     SizeMismatch(usize, usize)
 }
