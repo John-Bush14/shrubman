@@ -23,19 +23,24 @@ pub(super) fn start_shrubd() {
     
     sleep(Duration::from_secs(1));
     let mut buf = [0u8];
-    daemon_ps.stdout.unwrap().read_exact(&mut buf).expect("Daemon didn't return succes code?");
+    match daemon_ps.stdout.unwrap().read_exact(&mut buf) {
+        Ok(_) => (),
+        Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => (), // will be handled with StartupResult::NoResult
+        Err(err) => panic!("Failed to read startup result from daemon: {}", err)
+    };
 
     match StartupResult::try_from(buf[0]).expect("Daemon returned invalid result? (try restarting shrubd)") {
         StartupResult::Ok => info!("Daemon started up succesfully!"),
-        StartupResult::Error => panic!("Unknown error has occured while daemon was starting up.")
+        err => panic!("Unknown error has occured while daemon was starting up. {:?}", err)
     };
 }
 
 #[repr(u8)]
 #[derive(TryFromPrimitive, IntoPrimitive, Debug)]
 enum StartupResult {
-    Ok = 0,
-    Error = 1,
+    NoResult = 0,
+    Ok = 1,
+    Error = 2,
 }
 
 impl StartupResult {fn return_result(self) {
