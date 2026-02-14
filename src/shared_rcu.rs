@@ -59,8 +59,9 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         }
     }
 
-    fn offset(&self) -> usize {self.shmem().offset.load(Ordering::Relaxed)}
     fn gptr(&self) -> *mut T {self.gptr_with(self.offset())}
+
+    fn offset(&self) -> usize {self.shmem().offset.load(Ordering::Acquire)}
 
     pub fn check_shmem(&self) -> Result<(), RcuError> {
         match (self.shmem_ptr.is_null(), !self.shmem_ptr.is_aligned()) {
@@ -96,7 +97,7 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
 
             new_gptr.write(data);
             
-            self.shmem().offset.swap(new_offset, Ordering::Release);
+            self.shmem().offset.store(new_offset, Ordering::Release);
         }
 
         Ok(())
