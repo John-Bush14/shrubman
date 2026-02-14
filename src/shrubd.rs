@@ -37,6 +37,7 @@ enum StartupResult {
     Ok = 0,
     Error = 1,
 }
+
 impl StartupResult {fn return_result(self) {
     print!("{}", u8::from(self) as char); 
     let _ = io::stdout().flush();
