@@ -47,8 +47,8 @@ impl<T, const N: usize> SharedRcuCell<T, N> {
         self.check_shmem()?;
 
         unsafe {
-            Ok(&*(self.gptr()))
-        }   
+            Ok(&*self.gptr())
+        }
     }
 
     const fn shmem(&self) -> &mut SharedMemory<T, N> {unsafe {&mut *self.shmem_ptr}}
