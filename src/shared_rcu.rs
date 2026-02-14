@@ -1,7 +1,29 @@
+//! Lock-free RCU (Read-Copy-Update) cell implementation over POSIX shared memory.
+//!
+//! This module provides [`SharedRcuCell`], a concurrent data structure that allows
+//! wait-free reads and atomic writes across process boundaries using shared memory.
+//!
+//! # Design
+//!
+//! The RCU cell maintains N redundant copies of data in a circular buffer. Writers
+//! atomically update an offset pointer after writing new data, while readers access
+//! the current slot without blocking.
+//!
+//! # Safety
+//!
+//! The implementation validates pointers and offsets before dereferencing and should
+//! be completely safe, except for if more than N writes happen before a read.
+
 use std::{ffi::OsString, ops::Deref, sync::atomic::{AtomicUsize, Ordering}};
 use shared_memory::{Shmem, ShmemConf, ShmemError};
 use thiserror::Error;
 
+/// A lock-free RCU cell backed by POSIX shared memory with N-way redundancy.
+///
+/// # Type Parameters
+///
+/// - `T`: The data type stored in the cell
+/// - `N`: Number of redundant copies (how many writes can happen before a read becomes unsafe)
 pub struct SharedRcuCell<T: Sized, const N: usize> {
     _shmem_handle: Shmem,
     shmem_ptr: *mut SharedMemory<T, N>,
