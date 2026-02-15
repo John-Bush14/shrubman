@@ -1,12 +1,12 @@
 use std::{env, fs::{self}, io::{self, Read, Write}, process::{self, Stdio}, thread::sleep, time::Duration};
 
 use inplace_containers::InplaceString;
-use log::info;
+use log::{info, warn};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use shared_memory::ShmemError;
 
 
-use crate::{HEARTBEAT_SHMEM_FLINK, Heartbeat, Pid, SHRUBD_ENABLE_VAR, SharedMemoryCell, shared_rcu::RcuError};
+use crate::{DAEMON_STATUS_SHMEM_FLINK, DaemonStatus, Pid, SHRUBD_ENABLE_VAR, SharedMemoryCell, shared_rcu::RcuError};
 
 /// Starts shrubd, waits for it's succes code and then disowns it
 pub(super) fn start_shrubd() {
@@ -53,22 +53,22 @@ impl StartupResult {fn return_result(self) {
 pub(super) fn main() {
     env_logger::init();
 
-    let heartbeat_cell = create_heartbeat_cell();
+    let daemon_status = create_daemon_status();
 
     let mut version = InplaceString::new(); version.push_str(env!("CARGO_PKG_VERSION"));
-    let _ = heartbeat_cell.write(Heartbeat { pid: Pid(process::id() as _), version });
+    let _ = daemon_status.write(DaemonStatus { pid: Pid(process::id() as _), version });
     
     StartupResult::Ok.return_result();
 
     sleep(Duration::from_secs(10));
 }
 
-fn create_heartbeat_cell() -> SharedMemoryCell<Heartbeat> {
-    match SharedMemoryCell::create(HEARTBEAT_SHMEM_FLINK.into()) {
+fn create_daemon_status() -> SharedMemoryCell<DaemonStatus> {
+    match SharedMemoryCell::create(DAEMON_STATUS_SHMEM_FLINK.into()) {
         Ok(c) => c,
         Err(RcuError::SharedMemoryError(ShmemError::LinkExists)) => {
-            fs::remove_file(HEARTBEAT_SHMEM_FLINK).expect("Link exists but doesn't exist?"); 
-            create_heartbeat_cell()
+            fs::remove_file(DAEMON_STATUS_SHMEM_FLINK).expect("Link exists but doesn't exist?"); 
+            create_daemon_status()
         }
         Err(err) => {
             StartupResult::Error.return_result();

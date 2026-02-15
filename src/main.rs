@@ -15,8 +15,8 @@ mod shrubd;
 mod shared_rcu;
 
 
-// flink used for heartbeat cell
-const HEARTBEAT_SHMEM_FLINK: &str = "/tmp/shared_shrubs";
+// flink used for daemon status cell
+const DAEMON_STATUS_SHMEM_FLINK: &str = "/tmp/shared_shrubs";
 // environment variable used to make program act as daemon
 const SHRUBD_ENABLE_VAR: &str = "START_SHRUBD";
 
@@ -40,21 +40,21 @@ fn main() {
 
     env_logger::init();
 
-    let heartbeat_cell = open_heartbeat_cell();
+    let daemon_status = open_daemon_status();
     
-    debug!("{:?}", *heartbeat_cell)
+    debug!("{:?}", *daemon_status)
 }
 
 #[derive(Debug)]
-pub struct Heartbeat {
+pub struct DaemonStatus {
     pid: Pid,
     version: VersionString
 }
 
-fn open_heartbeat_cell() -> SharedMemoryCell<Heartbeat> {
-    let restart_reason: Box<dyn Error> = match SharedMemoryCell::<Heartbeat>::open(HEARTBEAT_SHMEM_FLINK.into()) {
+fn open_daemon_status() -> SharedMemoryCell<DaemonStatus> {
+    let restart_reason: Box<dyn Error> = match SharedMemoryCell::<DaemonStatus>::open(DAEMON_STATUS_SHMEM_FLINK.into()) {
         Ok(cell) => {
-            if let Err(err) = cell.read().unwrap().is_beating() {
+            if let Err(err) = cell.read().unwrap().validate() {
                 Box::new(err)
             } else {return cell}
         }, 
@@ -65,25 +65,25 @@ fn open_heartbeat_cell() -> SharedMemoryCell<Heartbeat> {
 
     shrubd::start_shrubd();
 
-    SharedMemoryCell::open(HEARTBEAT_SHMEM_FLINK.into()).expect("Failed to open shared heartbeat memory after shrubd has been started")
+    SharedMemoryCell::open(DAEMON_STATUS_SHMEM_FLINK.into()).expect("Failed to open shared heartbeat memory after shrubd has been started")
 }
 
-impl Heartbeat {
-    fn is_beating(&self) -> Result<(), CardiacArrest> {
+impl DaemonStatus {
+    fn validate(&self) -> Result<(), DaemonError> {
         let version = env!("CARGO_PKG_VERSION");
         if self.version != version {
             warn!("Daemon is running a different version ({}) to current running process ({}), unintended behaviour (probably just segfaults) might ensue.", self.version, version);
         }
 
-        if !self.pid.is_valid() {return Err(CardiacArrest::DeadPid(self.pid))}
+        if !self.pid.is_valid() {return Err(DaemonError::InvalidPid(self.pid))}
 
         Ok(())
     }
 }
 
 #[derive(Error, Debug)]
-pub enum CardiacArrest {
-    #[error("Shrubd is dead (pid = {0:?})")]
-    DeadPid(Pid),  
+pub enum DaemonError {
+    #[error("Daemon status contained invalid PID: {0:?}")]
+    InvalidPid(Pid),  
 }
 
