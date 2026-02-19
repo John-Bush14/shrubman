@@ -34,7 +34,7 @@ impl Pid {fn is_valid(&self) -> bool {
 
 
 fn main() {
-    if std::env::var_os(SHRUBD_ENABLE_VAR).unwrap_or(OsString::from("0")) == "1" {
+    if std::env::var_os(SHRUBD_ENABLE_VAR).unwrap_or_else(|| OsString::from("0")) == "1" {
         return shrubd::main();
     }
 
@@ -65,7 +65,7 @@ fn open_daemon_status() -> SharedMemoryCell<DaemonStatus> {
 
     shrubd::start_shrubd();
 
-    SharedMemoryCell::open(DAEMON_STATUS_SHMEM_FLINK.into()).expect("Failed to open shared heartbeat memory after shrubd has been started")
+    SharedMemoryCell::open(DAEMON_STATUS_SHMEM_FLINK.into()).expect("Failed to open daemon status after shrubd has been started")
 }
 
 impl DaemonStatus {
